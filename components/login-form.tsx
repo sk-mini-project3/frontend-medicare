@@ -29,12 +29,15 @@ export function LoginForm() {
 
     if (password === "1234") {
       if (email === "doctor@example.com") {
+        document.cookie = "user-role=doctor; path=/"
         router.push("/doctor")
         return
       } else if (email === "nurse@example.com") {
+        document.cookie = "user-role=nurse; path=/"
         router.push("/nurse")
         return
       } else if (email === "patient@example.com") {
+        document.cookie = "user-role=patient; path=/"
         router.push("/patient")
         return
       }

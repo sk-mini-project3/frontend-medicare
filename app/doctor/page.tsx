@@ -14,7 +14,7 @@ export default function DoctorPage() {
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
   const [activeTab, setActiveTab] = useState("patients")
 
-  // 통계 데이터 (목업)
+  // 통계 데이터
   const stats = {
     todayPatients: 12,
     pendingApprovals: 3,
@@ -32,6 +32,7 @@ export default function DoctorPage() {
       />
 
       <main className="container mx-auto px-4 py-6 md:px-6">
+
         {/* 통계 카드 */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <Card>
@@ -47,6 +48,7 @@ export default function DoctorPage() {
               </div>
             </CardContent>
           </Card>
+
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
@@ -60,6 +62,7 @@ export default function DoctorPage() {
               </div>
             </CardContent>
           </Card>
+
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
@@ -73,6 +76,7 @@ export default function DoctorPage() {
               </div>
             </CardContent>
           </Card>
+
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
@@ -102,10 +106,8 @@ export default function DoctorPage() {
             </TabsTrigger>
           </TabsList>
 
-          {/* 환자 조회 / EMR 탭 */}
           <TabsContent value="patients" className="space-y-4">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* 환자 검색 */}
               <div className="lg:col-span-4">
                 <PatientSearch
                   onSelectPatient={setSelectedPatient}
@@ -113,7 +115,6 @@ export default function DoctorPage() {
                 />
               </div>
 
-              {/* EMR 및 처방 */}
               <div className="lg:col-span-8">
                 {selectedPatient ? (
                   <div className="space-y-6">
@@ -135,15 +136,16 @@ export default function DoctorPage() {
             </div>
           </TabsContent>
 
-          {/* 처방 관리 탭 */}
           <TabsContent value="prescriptions" className="space-y-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <NursePrescriptionApproval />
+
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">처방 이력</CardTitle>
                   <CardDescription>최근 발행한 처방전 내역</CardDescription>
                 </CardHeader>
+
                 <CardContent>
                   <div className="space-y-3">
                     {[
