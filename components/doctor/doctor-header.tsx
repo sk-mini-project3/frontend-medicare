@@ -6,6 +6,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Bell, LogOut, Settings, User, Menu, Stethoscope, Home } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
+import { useAuthStore } from "@/hooks/use-auth-store"
+import { useRouter } from "next/navigation"
 
 interface DoctorHeaderProps {
   doctorName: string
@@ -15,6 +17,20 @@ interface DoctorHeaderProps {
 }
 
 export function DoctorHeader({ doctorName, doctorId, department, pendingApprovals = 0 }: DoctorHeaderProps) {
+  const logout = useAuthStore((state) => state.logout)
+  const router = useRouter()
+
+  const handleLogout = async () => {
+    try {
+      await logout()
+      router.push("/")
+    } catch (error) {
+      console.error("Logout failed:", error)
+      // 실패하더라도 일단 홈으로 이동 시도
+      router.push("/")
+    }
+  }
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
@@ -97,11 +113,15 @@ export function DoctorHeader({ doctorName, doctorId, department, pendingApproval
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive" asChild>
-                <Link href="/">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>로그아웃</span>
-                </Link>
+              <DropdownMenuItem 
+                className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer" 
+                onSelect={(e) => {
+                  e.preventDefault()
+                  handleLogout()
+                }}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>로그아웃</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

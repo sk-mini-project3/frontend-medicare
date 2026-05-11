@@ -9,8 +9,12 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Plus, Pill, Trash2, Send } from "lucide-react"
+import { Plus, Pill, Trash2, Send, Loader2 } from "lucide-react"
 import type { Patient } from "./patient-search"
+import { MedicalRecordService } from "@/services/medical-record.service"
+import { PrescriptionService } from "@/services/prescription.service"
+import { useAuthStore } from "@/hooks/use-auth-store"
+import { toast } from "sonner"
 
 interface Medication {
   id: string
@@ -24,6 +28,7 @@ interface Medication {
 
 interface PrescriptionFormProps {
   patient: Patient
+  reservationId?: number
 }
 
 const commonMedications = [
@@ -51,13 +56,16 @@ const timingOptions = [
   { value: "bedtime", label: "취침전" },
 ]
 
-export function PrescriptionForm({ patient }: PrescriptionFormProps) {
+export function PrescriptionForm({ patient, reservationId }: PrescriptionFormProps) {
+  const { user } = useAuthStore()
   const [medications, setMedications] = useState<Medication[]>([])
   const [isAddingMed, setIsAddingMed] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [newMed, setNewMed] = useState<Partial<Medication>>({
     timing: [],
   })
   const [diagnosis, setDiagnosis] = useState("")
+  const [treatmentNotes, setTreatmentNotes] = useState("")
 
   const handleAddMedication = () => {
     if (newMed.name && newMed.dosage && newMed.frequency && newMed.duration) {
@@ -111,10 +119,43 @@ export function PrescriptionForm({ patient }: PrescriptionFormProps) {
     return labels[freq] || freq
   }
 
-  const handleSubmitPrescription = () => {
-    alert(`${patient.name} 환자에게 처방전이 발행되었습니다.`)
-    setMedications([])
-    setDiagnosis("")
+  const handleSubmitPrescription = async () => {
+    if (!user) return
+    
+    setIsSubmitting(true)
+    try {
+      // 1. 진료 기록 생성
+      const patientId = parseInt(patient.id.replace(/[^0-9]/g, "")) || 1 // 임시 ID 변환 로직
+      
+      await MedicalRecordService.create({
+        patientId,
+        doctorId: parseInt(user.id),
+        reservationId,
+        diagnosis,
+        treatmentNotes
+      })
+
+      // 2. 처방전 생성 (각 약물마다 별도 생성)
+      for (const med of medications) {
+        await PrescriptionService.create({
+          patientId,
+          doctorId: parseInt(user.id),
+          reservationId,
+          medication: med.name,
+          dosage: `${med.dosage} | ${getFrequencyLabel(med.frequency)} | ${getTimingLabel(med.timing)} | ${med.duration} | ${med.instructions || ""}`
+        })
+      }
+
+      toast.success(`${patient.name} 환자의 진료 기록 및 처방전이 저장되었습니다.`)
+      setMedications([])
+      setDiagnosis("")
+      setTreatmentNotes("")
+    } catch (error) {
+      console.error(error)
+      toast.error("저장에 실패했습니다.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -122,10 +163,10 @@ export function PrescriptionForm({ patient }: PrescriptionFormProps) {
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <Pill className="h-5 w-5" />
-          약물 처방
+          진료 기록 및 처방
         </CardTitle>
         <CardDescription>
-          {patient.name} 환자에게 처방할 약물을 추가하세요
+          {patient.name} 환자의 진료 내용을 기록하고 약물을 처방하세요
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -136,6 +177,17 @@ export function PrescriptionForm({ patient }: PrescriptionFormProps) {
             placeholder="진단명을 입력하세요"
             value={diagnosis}
             onChange={(e) => setDiagnosis(e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="treatmentNotes">의사 소견 및 처치 상세</Label>
+          <Textarea
+            id="treatmentNotes"
+            placeholder="환자 상태 및 처치 내용을 상세히 기록하세요"
+            className="min-h-[100px]"
+            value={treatmentNotes}
+            onChange={(e) => setTreatmentNotes(e.target.value)}
           />
         </div>
 
@@ -285,11 +337,15 @@ export function PrescriptionForm({ patient }: PrescriptionFormProps) {
 
         <Button
           className="w-full"
-          disabled={medications.length === 0 || !diagnosis}
+          disabled={isSubmitting || !diagnosis || !treatmentNotes}
           onClick={handleSubmitPrescription}
         >
-          <Send className="h-4 w-4 mr-2" />
-          처방전 발행
+          {isSubmitting ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Send className="h-4 w-4 mr-2" />
+          )}
+          진료 완료 및 처방전 발행
         </Button>
       </CardContent>
     </Card>

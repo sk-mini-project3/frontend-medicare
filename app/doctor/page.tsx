@@ -9,12 +9,14 @@ import { NursePrescriptionApproval } from "@/components/doctor/nurse-prescriptio
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Users, FileText, ClipboardList, Activity } from "lucide-react"
+import { useAuthStore } from "@/hooks/use-auth-store"
 
 export default function DoctorPage() {
+  const { user } = useAuthStore()
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
   const [activeTab, setActiveTab] = useState("patients")
 
-  // 통계 데이터
+  // 통계 데이터 (실제 서비스에서는 API로 받아오게 됩니다)
   const stats = {
     todayPatients: 12,
     pendingApprovals: 3,
@@ -22,12 +24,14 @@ export default function DoctorPage() {
     inpatients: 5,
   }
 
+  if (!user) return null
+
   return (
     <div className="min-h-screen bg-background">
       <DoctorHeader
-        doctorName="김의사"
-        doctorId="D-2024-001"
-        department="내과"
+        doctorName={user.name}
+        doctorId={user.id}
+        department={user.department || "일반내과"}
         pendingApprovals={stats.pendingApprovals}
       />
 

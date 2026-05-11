@@ -9,9 +9,12 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Eye, EyeOff, Mail, Lock, ArrowRight, AlertCircle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useAuthStore } from "@/hooks/use-auth-store"
+
 
 export function LoginForm() {
   const router = useRouter()
+  const login = useAuthStore((state) => state.login)
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [email, setEmail] = useState("")
@@ -21,30 +24,42 @@ export function LoginForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    console.log("🔥 SUBMIT TRIGGERED")
+
     setIsLoading(true)
     setError("")
 
-    // 로그인 시뮬레이션
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    try {
+      const res = await login({ email, password })
 
-    if (password === "1234") {
-      if (email === "doctor@example.com") {
-        document.cookie = "user-role=doctor; path=/"
-        router.push("/doctor")
-        return
-      } else if (email === "nurse@example.com") {
-        document.cookie = "user-role=nurse; path=/"
-        router.push("/nurse")
-        return
-      } else if (email === "patient@example.com") {
-        document.cookie = "user-role=patient; path=/"
-        router.push("/patient")
-        return
+      console.log("LOGIN RAW RESULT:", res)
+      console.log("ROLE:", res?.role)
+      console.log("ROLE CHECK:", res?.role)
+
+      const role = res?.role
+
+      if (!role) {
+        throw new Error("role 없음 (백엔드 응답 확인 필요)")
       }
-    }
 
-    setError("이메일 또는 비밀번호가 올바르지 않습니다.")
-    setIsLoading(false)
+      // 🔥 핵심: 상태 반영 타이밍 안정화
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      // 🔥 핵심: replace로 redirect (로그인 흐름 안정)
+      router.replace(`/${role.toLowerCase()}`)
+
+    } catch (err: any) {
+      console.error("LOGIN ERROR:", err)
+
+      setError(
+        err?.response?.data?.message ||
+        err?.message ||
+        "로그인 실패"
+      )
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (

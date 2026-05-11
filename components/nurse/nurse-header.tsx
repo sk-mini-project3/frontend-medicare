@@ -25,6 +25,8 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { useAuthStore } from "@/hooks/use-auth-store"
+import { useRouter } from "next/navigation"
 
 interface NurseHeaderProps {
   currentView: "reception" | "emr" | "prescription"
@@ -32,7 +34,19 @@ interface NurseHeaderProps {
 }
 
 export function NurseHeader({ currentView, onViewChange }: NurseHeaderProps) {
+  const { user, logout } = useAuthStore()
+  const router = useRouter()
   const [notifications] = useState(5)
+
+  const handleLogout = async () => {
+    try {
+      await logout()
+      router.push("/")
+    } catch (error) {
+      console.error("Logout failed:", error)
+      router.push("/")
+    }
+  }
 
   const navItems = [
     { id: "reception" as const, label: "접수/예약", icon: UserPlus },
@@ -40,11 +54,13 @@ export function NurseHeader({ currentView, onViewChange }: NurseHeaderProps) {
     { id: "prescription" as const, label: "임시 처방", icon: Pill },
   ]
 
+  if (!user) return null
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-      <div className="container flex h-16 items-center justify-between">
+      <div className="container flex h-16 items-center justify-between px-4 md:px-6">
         <div className="flex items-center gap-8">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/nurse" className="flex items-center gap-2">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
               <Heart className="h-5 w-5 text-primary-foreground" />
             </div>
@@ -93,7 +109,7 @@ export function NurseHeader({ currentView, onViewChange }: NurseHeaderProps) {
               <Button variant="ghost" className="relative h-9 w-9 rounded-full">
                 <Avatar className="h-9 w-9">
                   <AvatarFallback className="bg-primary/10 text-primary">
-                    박
+                    {user.name.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
               </Button>
@@ -101,9 +117,9 @@ export function NurseHeader({ currentView, onViewChange }: NurseHeaderProps) {
             <DropdownMenuContent className="w-56" align="end" forceMount>
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium">박간호사</p>
+                  <p className="text-sm font-medium">{user.name} 님</p>
                   <p className="text-xs text-muted-foreground">
-                    내과 병동 | N-2024-001
+                    {user.department} | {user.id}
                   </p>
                 </div>
               </DropdownMenuLabel>
@@ -121,11 +137,15 @@ export function NurseHeader({ currentView, onViewChange }: NurseHeaderProps) {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive" asChild>
-                <Link href="/">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  로그아웃
-                </Link>
+              <DropdownMenuItem 
+                className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer" 
+                onSelect={(e) => {
+                  e.preventDefault()
+                  handleLogout()
+                }}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                로그아웃
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

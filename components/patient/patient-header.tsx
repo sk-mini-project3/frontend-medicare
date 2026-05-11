@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Bell, LogOut, Settings, User, Menu, Home } from "lucide-react"
 import Link from "next/link"
+import { useAuthStore } from "@/hooks/use-auth-store"
+import { useRouter } from "next/navigation"
 
 interface PatientHeaderProps {
   patientName: string
@@ -12,6 +14,14 @@ interface PatientHeaderProps {
 }
 
 export function PatientHeader({ patientName, patientId }: PatientHeaderProps) {
+  const logout = useAuthStore((state) => state.logout)
+  const router = useRouter()
+
+  const handleLogout = async () => {
+    await logout()
+    router.push("/")
+  }
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
@@ -87,11 +97,15 @@ export function PatientHeader({ patientName, patientId }: PatientHeaderProps) {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive" asChild>
-                <Link href="/">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>로그아웃</span>
-                </Link>
+              <DropdownMenuItem 
+                className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer" 
+                onSelect={(e) => {
+                  e.preventDefault()
+                  handleLogout()
+                }}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>로그아웃</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

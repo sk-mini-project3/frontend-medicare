@@ -1,57 +1,43 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-
-type User = {
-  id: string
-  name: string
-  role: string
-}
+import { useAuthStore } from "@/hooks/use-auth-store"
 
 export default function NurseLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
   const router = useRouter()
+  const { user, fetchMe, isLoading, isHydrated } = useAuthStore()
 
   useEffect(() => {
-    const checkUser = async () => {
-      try {
-        const res = await fetch("/api/me", {
-          credentials: "include",
-        })
-
-        if (!res.ok) {
-          router.replace("/login")
-          return
-        }
-
-        const data: User = await res.json()
-
-        if (data.role !== "NURSE") {
-          router.replace("/403")
-          return
-        }
-
-        setUser(data)
-      } catch {
+    const checkAuth = async () => {
+      const userData = await fetchMe()
+      
+      if (!userData) {
         router.replace("/login")
-      } finally {
-        setLoading(false)
+        return
+      }
+
+      if (userData.role !== "NURSE") {
+        router.replace("/403")
       }
     }
 
-    checkUser()
-  }, [router])
+    if (isHydrated) {
+      checkAuth()
+    }
+  }, [fetchMe, router, isHydrated])
 
-  if (loading) {
+  if (!isHydrated || (isLoading && !user)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        Loading...
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+          <p className="text-muted-foreground animate-pulse">사용자 정보를 불러오는 중...</p>
+        </div>
       </div>
     )
   }

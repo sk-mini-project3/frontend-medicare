@@ -11,11 +11,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Eye, EyeOff, Mail, Lock, User, Phone, ShieldCheck, ArrowRight, ArrowLeft, Droplets, Shield, AlertTriangle } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { AuthService } from "@/services/auth.service"
+import { toast } from "sonner"
 
 type UserRole = "patient" | "nurse" | "doctor"
 
-const NURSE_CODE = "NURSE-2026"
-const DOCTOR_CODE = "DOCTOR-2026"
+// 보안 주의: 실제 운영 환경에서는 이러한 코드는 서버 사이드에서 검증해야 하며, 
+// 환경 변수 등으로 관리해야 합니다. 현재는 데모용으로 유지하되 하드코딩된 값은 제거할 수 있는 구조로 변경합니다.
+const NURSE_CODE = process.env.NEXT_PUBLIC_NURSE_CODE || "NURSE-2026"
+const DOCTOR_CODE = process.env.NEXT_PUBLIC_DOCTOR_CODE || "DOCTOR-2026"
 
 export function RegisterForm() {
   const router = useRouter()
@@ -83,18 +87,22 @@ export function RegisterForm() {
     e.preventDefault()
     setIsLoading(true)
 
-    // 회원가입 로직
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-
-    setIsLoading(false)
-    
-    // 역할에 따라 해당 페이지로 이동
-    if (role === "patient") {
-      router.push("/patient")
-    } else if (role === "nurse") {
-      router.push("/nurse")
-    } else {
-      router.push("/doctor")
+    try {
+      await AuthService.signup({
+        name,
+        email,
+        phone,
+        password,
+        role: role.toUpperCase(),
+        verificationCode: role === "patient" ? null : verificationCode
+      })
+      
+      toast.success("회원가입이 완료되었습니다. 로그인해주세요.")
+      router.push("/login")
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "회원가입에 실패했습니다.")
+    } finally {
+      setIsLoading(false)
     }
   }
 
