@@ -11,26 +11,34 @@ export interface User {
   role: UserRole
 }
 
+let authStoreApi: { setState: (partial: Partial<AuthState>) => void } | null = null
+
 interface AuthState {
   user: User | null
   isAuthenticated: boolean
   isLoading: boolean
   error: string | null
+  isHydrated: boolean
 
   login: (credentials: any) => Promise<TokenResponse>
+  fetchMe: () => Promise<User | null>
   logout: () => void
 }
 
 export const useAuthStore = create<AuthState>()(
-  persist(
-    (set) => ({
-      user: null,
-      isAuthenticated: false,
-      isLoading: false,
-      error: null,
+  persist<AuthState>(
+    (set, get, api): AuthState => {
+      authStoreApi = api
 
-      login: async (credentials) => {
-        set({ isLoading: true, error: null })
+      return {
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+        error: null,
+        isHydrated: false,
+
+        login: async (credentials) => {
+          set({ isLoading: true, error: null })
 
         try {
           const res = await AuthService.login(credentials)
@@ -43,6 +51,7 @@ export const useAuthStore = create<AuthState>()(
 
           localStorage.setItem("accessToken", res.accessToken)
           localStorage.setItem("refreshToken", res.refreshToken)
+          document.cookie = `user-role=${encodeURIComponent(res.role.toLowerCase())}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`
 
           const user: User = {
             id: "temp",
@@ -68,19 +77,66 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      logout: () => {
-        localStorage.removeItem("accessToken")
-        localStorage.removeItem("refreshToken")
+        fetchMe: async (): Promise<User | null> => {
+          const currentUser = get().user
 
-        set({
-          user: null,
-          isAuthenticated: false,
-        })
+        if (currentUser) {
+          return currentUser
+        }
+
+        set({ isLoading: true, error: null })
+
+        try {
+          const response = await fetch("/api/me", {
+            credentials: "include",
+          })
+
+          if (!response.ok) {
+            set({ user: null, isAuthenticated: false, isLoading: false })
+            return null
+          }
+
+          const user = (await response.json()) as User
+
+          set({
+            user,
+            isAuthenticated: true,
+            isLoading: false,
+          })
+
+          return user
+        } catch (err: any) {
+          set({
+            user: null,
+            isAuthenticated: false,
+            isLoading: false,
+            error: err?.message || "failed to load user",
+          })
+
+          return null
+        }
       },
-    }),
+
+        logout: () => {
+          localStorage.removeItem("accessToken")
+          localStorage.removeItem("refreshToken")
+          document.cookie = "user-role=; path=/; max-age=0; samesite=lax"
+
+          set({
+            user: null,
+            isAuthenticated: false,
+          })
+        },
+      }
+    },
     {
       name: "auth-storage",
       storage: createJSONStorage(() => localStorage),
+      onRehydrateStorage: () => (state) => {
+        if (state && authStoreApi) {
+          authStoreApi.setState({ isHydrated: true })
+        }
+      },
     }
   )
 )

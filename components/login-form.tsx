@@ -46,8 +46,8 @@ export function LoginForm() {
       // 🔥 핵심: 상태 반영 타이밍 안정화
       await new Promise((resolve) => setTimeout(resolve, 0))
 
-      // 🔥 핵심: replace로 redirect (로그인 흐름 안정)
-      router.replace(`/${role.toLowerCase()}`)
+      // 쿠키/보호 라우트와 맞추기 위해 전체 이동으로 전환
+      window.location.replace(`/${role.toLowerCase()}`)
 
     } catch (err: any) {
       console.error("LOGIN ERROR:", err)
