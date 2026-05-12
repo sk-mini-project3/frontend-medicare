@@ -13,8 +13,10 @@ export interface Reservation {
   reservationDate: string
   status: ReservationStatus
   symptoms?: string
-  createdAt: string
-  updatedAt: string
+  /** users.name */
+  patientName?: string | null
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface ReservationCreateRequest {
@@ -30,22 +32,32 @@ export interface ReservationStatusUpdateRequest {
 
 export const ReservationService = {
   async create(request: ReservationCreateRequest): Promise<Reservation> {
-    return api.post("/api/reservations", request)
+    const res = await api.post("/api/reservations", request)
+    return res.data
   },
 
   async getById(id: number): Promise<Reservation> {
-    return api.get(`/api/reservations/${id}`)
+    const res = await api.get(`/api/reservations/${id}`)
+    return res.data
   },
 
   async getAll(params?: { status?: ReservationStatus, doctorId?: number, date?: string }): Promise<Reservation[]> {
-    return api.get("/api/reservations", { params })
+    const res = await api.get("/api/reservations", { params })
+    return res.data
+  },
+
+  async getByPatientId(patientId: number): Promise<Reservation[]> {
+    const res = await api.get(`/api/reservations/patient/${patientId}`)
+    return res.data
   },
 
   async getMyReservations(): Promise<Reservation[]> {
-    return api.get(`/api/reservations/my`)
+    const res = await api.get(`/api/reservations/my`)
+    return res.data
   },
 
   async updateStatus(id: number, status: ReservationStatus): Promise<Reservation> {
-    return api.patch(`/api/reservations/${id}/status`, { status })
+    const res = await api.patch(`/api/reservations/${id}/status`, { status })
+    return res.data
   }
 }

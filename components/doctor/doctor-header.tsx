@@ -12,11 +12,10 @@ import { useRouter } from "next/navigation"
 interface DoctorHeaderProps {
   doctorName: string
   doctorId: string
-  department: string
   pendingApprovals?: number
 }
 
-export function DoctorHeader({ doctorName, doctorId, department, pendingApprovals = 0 }: DoctorHeaderProps) {
+export function DoctorHeader({ doctorName, doctorId, pendingApprovals = 0 }: DoctorHeaderProps) {
   const logout = useAuthStore((state) => state.logout)
   const router = useRouter()
 
@@ -95,7 +94,7 @@ export function DoctorHeader({ doctorName, doctorId, department, pendingApproval
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium leading-none">{doctorName} 선생님</p>
                   <p className="text-xs leading-none text-muted-foreground">
-                    {department} | {doctorId}
+                    의사 | {doctorId}
                   </p>
                 </div>
               </DropdownMenuLabel>

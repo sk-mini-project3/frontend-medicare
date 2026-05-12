@@ -1,14 +1,18 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, User, Calendar, Phone } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Search, User, Calendar, Phone, Loader2, RefreshCw } from "lucide-react"
+import { cn, isMeaningfulPatientGender } from "@/lib/utils"
+import { PatientService } from "@/services/patient.service"
+import { toast } from "sonner"
 
-interface Patient {
+/** UI용 환자 행 — `userId`는 백엔드 users.user_id (진료·처방 API에 사용) */
+export type Patient = {
+  userId: number
   id: string
   name: string
   birthDate: string
@@ -18,13 +22,18 @@ interface Patient {
   status: "입원" | "외래" | "퇴원"
 }
 
-const mockPatients: Patient[] = [
-  { id: "P-2024-001", name: "김영희", birthDate: "1985-03-15", gender: "여", phone: "010-1234-5678", lastVisit: "2024-01-15", status: "외래" },
-  { id: "P-2024-002", name: "이철수", birthDate: "1972-08-22", gender: "남", phone: "010-2345-6789", lastVisit: "2024-01-14", status: "입원" },
-  { id: "P-2024-003", name: "박지민", birthDate: "1990-12-01", gender: "여", phone: "010-3456-7890", lastVisit: "2024-01-13", status: "외래" },
-  { id: "P-2024-004", name: "최민수", birthDate: "1968-05-10", gender: "남", phone: "010-4567-8901", lastVisit: "2024-01-12", status: "퇴원" },
-  { id: "P-2024-005", name: "정수연", birthDate: "1995-07-28", gender: "여", phone: "010-5678-9012", lastVisit: "2024-01-11", status: "입원" },
-]
+function mapDtoToPatient(d: { userId: number; name: string; birthDate: string; gender: string; phone: string }): Patient {
+  return {
+    userId: d.userId,
+    id: String(d.userId),
+    name: d.name?.trim() || "(이름 없음)",
+    birthDate: d.birthDate?.trim() || "—",
+    gender: d.gender?.trim() || "—",
+    phone: d.phone?.trim() || "—",
+    lastVisit: "—",
+    status: "외래",
+  }
+}
 
 interface PatientSearchProps {
   onSelectPatient: (patient: Patient) => void
@@ -33,7 +42,25 @@ interface PatientSearchProps {
 
 export function PatientSearch({ onSelectPatient, selectedPatientId }: PatientSearchProps) {
   const [searchQuery, setSearchQuery] = useState("")
-  const [patients] = useState<Patient[]>(mockPatients)
+  const [patients, setPatients] = useState<Patient[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  const load = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const list = await PatientService.getAll()
+      setPatients(list.map(mapDtoToPatient))
+    } catch {
+      toast.error("환자 목록을 불러오지 못했습니다.")
+      setPatients([])
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
 
   const filteredPatients = patients.filter(
     (patient) =>
@@ -55,9 +82,14 @@ export function PatientSearch({ onSelectPatient, selectedPatientId }: PatientSea
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">환자 조회</CardTitle>
-        <CardDescription>환자명, 환자번호, 연락처로 검색하세요</CardDescription>
+      <CardHeader className="flex flex-row items-start justify-between space-y-0">
+        <div>
+          <CardTitle className="text-lg">환자 조회</CardTitle>
+          <CardDescription>이름·환자번호(userId)·연락처로 검색 (백엔드 /api/patients)</CardDescription>
+        </div>
+        <Button type="button" variant="outline" size="icon" onClick={() => void load()} disabled={isLoading} title="새로고침">
+          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+        </Button>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="relative">
@@ -71,50 +103,58 @@ export function PatientSearch({ onSelectPatient, selectedPatientId }: PatientSea
         </div>
 
         <div className="space-y-2 max-h-[500px] overflow-y-auto">
-          {filteredPatients.map((patient) => (
-            <button
-              key={patient.id}
-              onClick={() => onSelectPatient(patient)}
-              className={cn(
-                "w-full text-left p-3 rounded-lg border transition-colors hover:bg-secondary/50",
-                selectedPatientId === patient.id && "bg-primary/5 border-primary/30"
-              )}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary">
-                    <User className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{patient.name}</span>
-                      <span className="text-xs text-muted-foreground">({patient.gender})</span>
-                      <Badge variant="outline" className={cn("text-xs", getStatusColor(patient.status))}>
-                        {patient.status}
-                      </Badge>
+          {isLoading && patients.length === 0 ? (
+            <div className="flex justify-center py-12 text-muted-foreground">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          ) : (
+            filteredPatients.map((patient) => (
+              <button
+                key={patient.id}
+                type="button"
+                onClick={() => onSelectPatient(patient)}
+                className={cn(
+                  "w-full text-left p-3 rounded-lg border transition-colors hover:bg-secondary/50",
+                  selectedPatientId === patient.id && "bg-primary/5 border-primary/30"
+                )}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary">
+                      <User className="h-5 w-5 text-muted-foreground" />
                     </div>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                      <span>{patient.id}</span>
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {patient.birthDate}
-                      </span>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium">{patient.name}</span>
+                        {isMeaningfulPatientGender(patient.gender) && (
+                          <span className="text-xs text-muted-foreground">({patient.gender})</span>
+                        )}
+                        <Badge variant="outline" className={cn("text-xs", getStatusColor(patient.status))}>
+                          {patient.status}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                        <span>ID {patient.id}</span>
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {patient.birthDate}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground pl-13">
-                <span className="flex items-center gap-1">
-                  <Phone className="h-3 w-3" />
-                  {patient.phone}
-                </span>
-                <span>최근 방문: {patient.lastVisit}</span>
-              </div>
-            </button>
-          ))}
-          {filteredPatients.length === 0 && (
+                <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground pl-13">
+                  <span className="flex items-center gap-1">
+                    <Phone className="h-3 w-3" />
+                    {patient.phone}
+                  </span>
+                </div>
+              </button>
+            ))
+          )}
+          {!isLoading && filteredPatients.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
-              검색 결과가 없습니다
+              {patients.length === 0 ? "등록된 환자 상세가 없습니다. (patient_details 미등록 시 목록이 비어 있을 수 있습니다)" : "검색 결과가 없습니다"}
             </div>
           )}
         </div>
@@ -122,5 +162,3 @@ export function PatientSearch({ onSelectPatient, selectedPatientId }: PatientSea
     </Card>
   )
 }
-
-export type { Patient }

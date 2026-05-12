@@ -6,23 +6,18 @@ import { PatientSearch, type Patient } from "@/components/doctor/patient-search"
 import { PatientEMR } from "@/components/doctor/patient-emr"
 import { PrescriptionForm } from "@/components/doctor/prescription-form"
 import { NursePrescriptionApproval } from "@/components/doctor/nurse-prescription-approval"
+import { DoctorPrescriptionHistory } from "@/components/doctor/doctor-prescription-history"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Users, FileText, ClipboardList, Activity } from "lucide-react"
 import { useAuthStore } from "@/hooks/use-auth-store"
+import { useDoctorDashboardStats } from "@/hooks/use-doctor-dashboard-stats"
 
 export default function DoctorPage() {
   const { user } = useAuthStore()
+  const { stats, doctorId } = useDoctorDashboardStats()
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
   const [activeTab, setActiveTab] = useState("patients")
-
-  // 통계 데이터 (실제 서비스에서는 API로 받아오게 됩니다)
-  const stats = {
-    todayPatients: 12,
-    pendingApprovals: 3,
-    completedConsults: 8,
-    inpatients: 5,
-  }
 
   if (!user) return null
 
@@ -31,13 +26,10 @@ export default function DoctorPage() {
       <DoctorHeader
         doctorName={user.name}
         doctorId={user.id}
-        department={user.department || "일반내과"}
         pendingApprovals={stats.pendingApprovals}
       />
 
       <main className="container mx-auto px-4 py-6 md:px-6">
-
-        {/* 통계 카드 */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <Card>
             <CardContent className="p-4">
@@ -46,8 +38,8 @@ export default function DoctorPage() {
                   <Users className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{stats.todayPatients}</p>
-                  <p className="text-xs text-muted-foreground">오늘 예약 환자</p>
+                  <p className="text-2xl font-bold">{stats.totalPatients}</p>
+                  <p className="text-xs text-muted-foreground">등록 환자 (상세)</p>
                 </div>
               </div>
             </CardContent>
@@ -61,7 +53,7 @@ export default function DoctorPage() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{stats.pendingApprovals}</p>
-                  <p className="text-xs text-muted-foreground">승인 대기</p>
+                  <p className="text-xs text-muted-foreground">처방 승인 대기</p>
                 </div>
               </div>
             </CardContent>
@@ -74,8 +66,8 @@ export default function DoctorPage() {
                   <FileText className="h-5 w-5 text-green-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{stats.completedConsults}</p>
-                  <p className="text-xs text-muted-foreground">오늘 진료 완료</p>
+                  <p className="text-2xl font-bold">{stats.todayMedicalRecords}</p>
+                  <p className="text-xs text-muted-foreground">오늘 진료 기록</p>
                 </div>
               </div>
             </CardContent>
@@ -88,15 +80,14 @@ export default function DoctorPage() {
                   <Activity className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{stats.inpatients}</p>
-                  <p className="text-xs text-muted-foreground">담당 입원환자</p>
+                  <p className="text-2xl font-bold">{stats.totalMedicalRecords}</p>
+                  <p className="text-xs text-muted-foreground">내 진료 기록 합계</p>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* 메인 탭 */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
             <TabsTrigger value="patients">환자 조회 / EMR</TabsTrigger>
@@ -113,10 +104,7 @@ export default function DoctorPage() {
           <TabsContent value="patients" className="space-y-4">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               <div className="lg:col-span-4">
-                <PatientSearch
-                  onSelectPatient={setSelectedPatient}
-                  selectedPatientId={selectedPatient?.id}
-                />
+                <PatientSearch onSelectPatient={setSelectedPatient} selectedPatientId={selectedPatient?.id} />
               </div>
 
               <div className="lg:col-span-8">
@@ -144,31 +132,7 @@ export default function DoctorPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <NursePrescriptionApproval />
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">처방 이력</CardTitle>
-                  <CardDescription>최근 발행한 처방전 내역</CardDescription>
-                </CardHeader>
-
-                <CardContent>
-                  <div className="space-y-3">
-                    {[
-                      { patient: "박지민", date: "2024-01-15 11:30", meds: "타이레놀정, 오메프라졸캡슐" },
-                      { patient: "김영희", date: "2024-01-15 10:15", meds: "아모잘탄정" },
-                      { patient: "최민수", date: "2024-01-14 16:45", meds: "메트포르민정, 아스피린정" },
-                      { patient: "이철수", date: "2024-01-14 14:20", meds: "프레드니솔론정" },
-                    ].map((item, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div>
-                          <p className="font-medium">{item.patient}</p>
-                          <p className="text-sm text-muted-foreground">{item.meds}</p>
-                        </div>
-                        <span className="text-xs text-muted-foreground">{item.date}</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+              <DoctorPrescriptionHistory doctorId={doctorId} />
             </div>
           </TabsContent>
         </Tabs>

@@ -18,9 +18,7 @@ import {
   Calendar as CalendarIcon, 
   Clock, 
   User, 
-  Phone,
   CheckCircle,
-  XCircle,
   AlertCircle,
   Loader2
 } from "lucide-react"
@@ -28,7 +26,18 @@ import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { ko } from "date-fns/locale"
 import { ReservationService, ReservationStatus, Reservation } from "@/services/reservation.service"
+import { PatientService } from "@/services/patient.service"
 import { toast } from "sonner"
+
+const DOCTOR_LABELS: Record<number, string> = {
+  1: "김영수 전문의",
+  2: "박의사",
+  3: "이정민 전문의",
+}
+
+function getDoctorLabel(doctorId: number): string {
+  return DOCTOR_LABELS[doctorId] ?? `의사 #${doctorId}`
+}
 
 // 프론트엔드 UI용 타입
 interface Appointment extends Reservation {
@@ -72,10 +81,22 @@ export function PatientReception() {
   const fetchAppointments = async () => {
     setIsLoading(true)
     try {
-      const data = await ReservationService.getAll({
-        date: format(selectedDate, "yyyy-MM-dd")
-      })
-      setAppointments(data)
+      const dateStr = format(selectedDate, "yyyy-MM-dd")
+      const [data, patientRows] = await Promise.all([
+        ReservationService.getAll({ date: dateStr }),
+        PatientService.getAll().catch(() => [] as { userId: number; name?: string }[]),
+      ])
+      const nameByPatientId = new Map<number, string>()
+      for (const row of patientRows) {
+        const n = row.name?.trim()
+        if (n) nameByPatientId.set(row.userId, n)
+      }
+      setAppointments(
+        data.map((a) => ({
+          ...a,
+          patientName: a.patientName?.trim() || nameByPatientId.get(a.patientId) || undefined,
+        }))
+      )
     } catch (error) {
       toast.error("예약 목록을 불러오는데 실패했습니다.")
     } finally {
@@ -115,13 +136,18 @@ export function PatientReception() {
   }
 
   const handleCreateAppointment = async () => {
+    const { patientId, date, time, doctor, reason } = newAppointment
+    if (!patientId.trim() || !time || !doctor) {
+      toast.error("환자 ID, 시간, 담당의는 필수입니다.")
+      return
+    }
     try {
+      const reservationDate = `${format(date, "yyyy-MM-dd")}T${time}:00`
       await ReservationService.create({
-        patientId: parseInt(newAppointment.patientId),
-        doctorId: parseInt(newAppointment.doctor),
-        reservationDate: format(newAppointment.date, "yyyy-MM-dd"),
-        reservationTime: newAppointment.time,
-        reason: newAppointment.reason
+        patientId: parseInt(patientId, 10),
+        doctorId: parseInt(doctor, 10),
+        reservationDate,
+        symptoms: reason.trim() || undefined,
       })
       toast.success("예약이 등록되었습니다.")
       setIsNewAppointmentOpen(false)
@@ -382,7 +408,17 @@ function AppointmentList({
 
   return (
     <div className="space-y-2">
-      {appointments.map((apt) => (
+      {appointments.map((apt) => {
+        const when = new Date(apt.reservationDate)
+        const whenLabel = Number.isNaN(when.getTime())
+          ? String(apt.reservationDate)
+          : when.toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" })
+        const symptoms = apt.symptoms?.trim()
+        const patientTitle = apt.patientName?.trim()
+          ? apt.patientName.trim()
+          : `환자 #${apt.patientId}`
+
+        return (
         <div
           key={apt.reservationId}
           className="flex items-center justify-between p-4 border rounded-lg hover:bg-secondary/30 transition-colors"
@@ -392,22 +428,26 @@ function AppointmentList({
               <User className="h-6 w-6 text-muted-foreground" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="font-medium">{apt.patientName || `환자 ID: ${apt.patientId}`}</span>
-                <span className="text-xs text-muted-foreground">({apt.reservationId})</span>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium">{patientTitle}</span>
+                <span className="text-xs text-muted-foreground">환자번호 {apt.patientId}</span>
+                <span className="text-xs text-muted-foreground">예약 #{apt.reservationId}</span>
                 {getStatusBadge(apt.status)}
               </div>
-              <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  {apt.reservationTime}
+                  <Clock className="h-3 w-3 shrink-0" />
+                  {whenLabel}
                 </span>
-                <span>의사 ID: {apt.doctorId}</span>
+                <span>담당: {getDoctorLabel(apt.doctorId)}</span>
               </div>
-              <p className="text-sm text-muted-foreground mt-1">사유: {apt.reason}</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                <span className="font-medium text-foreground/80">사유·진료과:</span>{" "}
+                {symptoms || "—"}
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {apt.status === ReservationStatus.WAITING && (
               <Button 
                 size="sm" 
@@ -428,7 +468,8 @@ function AppointmentList({
             )}
           </div>
         </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

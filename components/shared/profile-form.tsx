@@ -1,12 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState, type ReactElement } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
 import { Camera, Eye, EyeOff, Save, User, Mail, Phone, Lock, Droplets, Shield, AlertTriangle } from "lucide-react"
@@ -28,7 +27,7 @@ interface ProfileFormProps {
   }
 }
 
-export function ProfileForm({ userRole, initialData }: ProfileFormProps) {
+export function ProfileForm({ userRole, initialData }: ProfileFormProps): ReactElement {
   const [isLoading, setIsLoading] = useState(false)
   const [showCurrentPassword, setShowCurrentPassword] = useState(false)
   const [showNewPassword, setShowNewPassword] = useState(false)
@@ -48,6 +47,25 @@ export function ProfileForm({ userRole, initialData }: ProfileFormProps) {
   const [bloodType, setBloodType] = useState(initialData?.bloodType || "")
   const [insurance, setInsurance] = useState(initialData?.insurance || "")
   const [allergies, setAllergies] = useState(initialData?.allergies || "")
+
+  useEffect(() => {
+    if (!initialData) return
+    setName(initialData.name || "")
+    setEmail(initialData.email || "")
+    setPhone(initialData.phone || "")
+    setProfileImage(initialData.profileImage || "")
+    setBloodType(initialData.bloodType || "")
+    setInsurance(initialData.insurance || "")
+    setAllergies(initialData.allergies || "")
+  }, [
+    initialData?.name,
+    initialData?.email,
+    initialData?.phone,
+    initialData?.profileImage,
+    initialData?.bloodType,
+    initialData?.insurance,
+    initialData?.allergies,
+  ])
 
   const handleSaveBasicInfo = async () => {
     setIsLoading(true)
@@ -73,7 +91,7 @@ export function ProfileForm({ userRole, initialData }: ProfileFormProps) {
     setIsLoading(false)
   }
 
-  const getRoleLabel = () => {
+  const getRoleLabel = (): string => {
     switch (userRole) {
       case "patient":
         return "환자"
@@ -81,6 +99,8 @@ export function ProfileForm({ userRole, initialData }: ProfileFormProps) {
         return "간호사"
       case "doctor":
         return "의사"
+      default:
+        return ""
     }
   }
 
@@ -104,7 +124,7 @@ export function ProfileForm({ userRole, initialData }: ProfileFormProps) {
               <Avatar className="h-24 w-24">
                 <AvatarImage src={profileImage} alt={name} />
                 <AvatarFallback className="text-2xl bg-primary/10 text-primary">
-                  {name.charAt(0)}
+                  {(name || "?").charAt(0)}
                 </AvatarFallback>
               </Avatar>
               <Button
@@ -139,6 +159,7 @@ export function ProfileForm({ userRole, initialData }: ProfileFormProps) {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="pl-10"
+                  autoComplete="name"
                 />
               </div>
             </div>
@@ -153,6 +174,7 @@ export function ProfileForm({ userRole, initialData }: ProfileFormProps) {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="pl-10"
+                  autoComplete="username"
                 />
               </div>
             </div>
@@ -167,6 +189,7 @@ export function ProfileForm({ userRole, initialData }: ProfileFormProps) {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   className="pl-10"
+                  autoComplete="tel"
                 />
               </div>
             </div>
@@ -283,41 +306,28 @@ export function ProfileForm({ userRole, initialData }: ProfileFormProps) {
               <div className="space-y-2">
                 <Label htmlFor="bloodType">혈액형</Label>
                 <div className="relative">
-                  <Droplets className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
-                  <Select value={bloodType} onValueChange={setBloodType}>
-                    <SelectTrigger className="pl-10">
-                      <SelectValue placeholder="혈액형 선택" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="A+">A+</SelectItem>
-                      <SelectItem value="A-">A-</SelectItem>
-                      <SelectItem value="B+">B+</SelectItem>
-                      <SelectItem value="B-">B-</SelectItem>
-                      <SelectItem value="O+">O+</SelectItem>
-                      <SelectItem value="O-">O-</SelectItem>
-                      <SelectItem value="AB+">AB+</SelectItem>
-                      <SelectItem value="AB-">AB-</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Droplets className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="bloodType"
+                    placeholder="예: A+, O-"
+                    value={bloodType}
+                    onChange={(e) => setBloodType(e.target.value)}
+                    className="pl-10"
+                  />
                 </div>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="insurance">보험 정보</Label>
                 <div className="relative">
-                  <Shield className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
-                  <Select value={insurance} onValueChange={setInsurance}>
-                    <SelectTrigger className="pl-10">
-                      <SelectValue placeholder="보험 유형 선택" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="national">국민건강보험</SelectItem>
-                      <SelectItem value="medical-aid-1">의료급여 1종</SelectItem>
-                      <SelectItem value="medical-aid-2">의료급여 2종</SelectItem>
-                      <SelectItem value="private">민간보험</SelectItem>
-                      <SelectItem value="none">보험 없음</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Shield className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="insurance"
+                    placeholder="보험 유형 또는 가입 정보"
+                    value={insurance}
+                    onChange={(e) => setInsurance(e.target.value)}
+                    className="pl-10"
+                  />
                 </div>
               </div>
             </div>

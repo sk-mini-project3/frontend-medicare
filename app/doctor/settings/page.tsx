@@ -7,7 +7,6 @@ export default function DoctorSettingsPage() {
       <DoctorHeader 
         doctorName="김의사" 
         doctorId="D-2024-001" 
-        department="내과"
         pendingApprovals={3}
       />
       <main className="container py-8 px-4 md:px-6">

@@ -16,10 +16,9 @@ import { toast } from "sonner"
 
 type UserRole = "patient" | "nurse" | "doctor"
 
-// 보안 주의: 실제 운영 환경에서는 이러한 코드는 서버 사이드에서 검증해야 하며, 
-// 환경 변수 등으로 관리해야 합니다. 현재는 데모용으로 유지하되 하드코딩된 값은 제거할 수 있는 구조로 변경합니다.
-const NURSE_CODE = process.env.NEXT_PUBLIC_NURSE_CODE || "NURSE-2026"
-const DOCTOR_CODE = process.env.NEXT_PUBLIC_DOCTOR_CODE || "DOCTOR-2026"
+// 백엔드 src/main/resources/verification-codes.yml 과 동기화
+const NURSE_CODES = ["NURSE-1111", "NURSE-2222", "NURSE-3333"]
+const DOCTOR_CODES = ["DOCTOR-1234", "DOCTOR-5678", "DOCTOR-9999"]
 
 export function RegisterForm() {
   const router = useRouter()
@@ -49,18 +48,19 @@ export function RegisterForm() {
   const handleVerifyCode = () => {
     setVerificationError("")
     
+    const code = verificationCode.trim()
     if (role === "nurse") {
-      if (verificationCode === NURSE_CODE) {
+      if (NURSE_CODES.includes(code)) {
         setIsVerified(true)
       } else {
-        setVerificationError("잘못된 인증 코드입니다.")
+        setVerificationError(`유효한 코드: ${NURSE_CODES.join(", ")}`)
         setIsVerified(false)
       }
     } else if (role === "doctor") {
-      if (verificationCode === DOCTOR_CODE) {
+      if (DOCTOR_CODES.includes(code)) {
         setIsVerified(true)
       } else {
-        setVerificationError("잘못된 인증 코드입니다.")
+        setVerificationError(`유효한 코드: ${DOCTOR_CODES.join(", ")}`)
         setIsVerified(false)
       }
     }
@@ -72,7 +72,7 @@ export function RegisterForm() {
   }
 
   const canProceedStep2 = () => {
-    return (
+    const base =
       name.trim() !== "" &&
       email.trim() !== "" &&
       phone.trim() !== "" &&
@@ -80,7 +80,11 @@ export function RegisterForm() {
       confirmPassword.trim() !== "" &&
       password === confirmPassword &&
       password.length >= 8
-    )
+    if (!base) return false
+    if (role === "doctor" || role === "nurse") {
+      return isVerified && verificationCode.trim() !== ""
+    }
+    return true
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -88,19 +92,57 @@ export function RegisterForm() {
     setIsLoading(true)
 
     try {
-      await AuthService.signup({
+      const signupData: Record<string, unknown> = {
         name,
         email,
         phone,
         password,
         role: role.toUpperCase(),
-        verificationCode: role === "patient" ? null : verificationCode
-      })
+      }
+      if (role === "doctor") {
+        signupData.doctorCode = verificationCode.trim()
+      } else if (role === "nurse") {
+        signupData.nurseCode = verificationCode.trim()
+      }
+      if (role === "patient") {
+        if (bloodType.trim()) signupData.bloodType = bloodType.trim()
+        if (insurance.trim()) signupData.insuranceInfo = insurance.trim()
+        if (allergies.trim()) signupData.allergies = allergies.trim()
+      }
+      
+      console.log("📝 회원가입 요청:", JSON.stringify(signupData, null, 2))
+      
+      await AuthService.signup(signupData)
+      
+      console.log("✅ 회원가입 성공!")
+      
+      // 환자의 추가 정보를 localStorage에 저장 (나중에 프로필에서 표시)
+      if (role === "patient") {
+        const patientInfo = {
+          name,
+          email,
+          phone,
+          bloodType,
+          insurance,
+          allergies,
+          role: "PATIENT"
+        }
+        localStorage.setItem("patientInfo", JSON.stringify(patientInfo))
+        console.log("💾 환자 정보 저장:", patientInfo)
+      }
       
       toast.success("회원가입이 완료되었습니다. 로그인해주세요.")
       router.push("/login")
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "회원가입에 실패했습니다.")
+    } catch (error: unknown) {
+      console.error("❌ 회원가입 실패 - 전체:", error)
+      const err = error as { response?: { data?: { message?: string }; status?: number } }
+      console.error("❌ 회원가입 실패 - 응답:", err.response)
+      console.error("❌ 회원가입 실패 - 상태코드:", err.response?.status)
+      const msg =
+        err.response?.data?.message ??
+        (typeof err.response?.data === "string" ? err.response.data : undefined)
+      console.error("❌ 회원가입 실패 - 메시지:", msg)
+      toast.error(msg || "회원가입에 실패했습니다.")
     } finally {
       setIsLoading(false)
     }
@@ -189,6 +231,10 @@ export function RegisterForm() {
                 <ShieldCheck className="h-4 w-4" />
                 <span>{role === "nurse" ? "간호사" : "의사"} 인증이 필요합니다</span>
               </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                가입 시 입력하는 <strong>이름</strong>은 <code className="text-[11px]">verification-codes.yml</code>에
+                적힌 해당 코드의 <strong>ownerName</strong>과 같아야 합니다. (서버 재시작 시 YAML이 DB에 반영됩니다.)
+              </p>
               <div className="space-y-2">
                 <Label htmlFor="verificationCode" className="text-foreground/80 text-sm font-medium">
                   인증 코드
@@ -255,13 +301,24 @@ export function RegisterForm() {
               <Input
                 id="name"
                 type="text"
-                placeholder="홍길동"
+                placeholder={
+                  role === "doctor"
+                    ? "김의사 (verification-codes.yml의 ownerName과 동일)"
+                    : role === "nurse"
+                      ? "간호사 (코드에 등록된 이름과 동일)"
+                      : "홍길동"
+                }
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="pl-10 h-12 bg-background border-border"
                 required
               />
             </div>
+            {(role === "doctor" || role === "nurse") && (
+              <p className="text-xs text-muted-foreground">
+                의사·간호사는 인증코드마다 등록된 이름과 한 글자도 다르지 않게 일치해야 합니다. YAML을 바꾼 뒤에는 Spring 서버를 재시작해야 DB에 반영됩니다.
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">

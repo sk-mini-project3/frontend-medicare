@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useState } from "react"
 import { NurseHeader } from "@/components/nurse/nurse-header"
 import { PatientReception } from "@/components/nurse/patient-reception"
 import { NursePatientLookup, type Patient } from "@/components/nurse/nurse-patient-lookup"
@@ -18,10 +18,9 @@ export default function NursePage() {
     setCurrentView(view)
   }
 
-  // 환자 선택
-  const handleSelectPatient = (patient: Patient) => {
+  const handleSelectPatient = useCallback((patient: Patient) => {
     setSelectedPatient(patient)
-  }
+  }, [])
 
   return (
     <div className="min-h-screen bg-background">

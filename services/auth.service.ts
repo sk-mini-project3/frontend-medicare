@@ -1,5 +1,5 @@
 import api from "@/lib/axios"
-import { User, UserRole } from "@/hooks/use-auth-store"
+import type { AuthUser, UserRole } from "@/types/auth-user"
 
 export interface TokenResponse {
   accessToken: string
@@ -24,7 +24,7 @@ export const AuthService = {
     await api.post("/api/auth/logout")
   },
 
-  async getMe(): Promise<User> {
+  async getMe(): Promise<AuthUser> {
     const res = await api.get("/api/auth/me")
     return res.data
   }

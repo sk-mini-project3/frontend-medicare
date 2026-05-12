@@ -8,56 +8,69 @@ export enum PrescriptionStatus {
 
 export interface Prescription {
   prescriptionId: number
-  reservationId: number
+  reservationId: number | null
   patientId: number
-  doctorId: number
-  nurseId?: number
+  doctorId: number | null
+  nurseId?: number | null
   medication: string
   dosage: string
   status: PrescriptionStatus
   createdAt: string
-  updatedAt: string
+  updatedAt?: string
+  approvedBy?: number | null
 }
 
 export interface PrescriptionCreateRequest {
   patientId: number
-  reservationId: number
-  doctorId?: number
-  nurseId?: number
+  reservationId?: number | null
+  doctorId?: number | null
+  nurseId?: number | null
   medication: string
   dosage: string
 }
 
 export const PrescriptionService = {
   async create(request: PrescriptionCreateRequest): Promise<Prescription> {
-    return api.post("/api/prescriptions", request)
+    const res = await api.post("/api/prescriptions", request)
+    return res.data
   },
 
-  async getAll(): Promise<Prescription[]> {
-    return api.get("/api/prescriptions")
+  async getAll(params?: {
+    status?: PrescriptionStatus
+    nurseId?: number
+    doctorId?: number
+  }): Promise<Prescription[]> {
+    const res = await api.get("/api/prescriptions", { params })
+    return res.data
   },
 
   async getById(id: number): Promise<Prescription> {
-    return api.get(`/api/prescriptions/${id}`)
+    const res = await api.get(`/api/prescriptions/${id}`)
+    return res.data
   },
 
   async getByPatient(patientId: number): Promise<Prescription[]> {
-    return api.get(`/api/prescriptions/patient/${patientId}`)
+    const res = await api.get(`/api/prescriptions/patient/${patientId}`)
+    return res.data
   },
 
   async getMyPrescriptions(): Promise<Prescription[]> {
-    return api.get(`/api/prescriptions/my`)
+    const res = await api.get(`/api/prescriptions/my`)
+    return res.data
   },
 
-  async approve(id: number): Promise<Prescription> {
-    return api.patch(`/api/prescriptions/${id}/approve`)
+  async approve(id: number, _doctorId?: number): Promise<Prescription> {
+    const res = await api.patch(`/api/prescriptions/${id}/approve`)
+    return res.data
   },
 
   async reject(id: number): Promise<Prescription> {
-    return api.patch(`/api/prescriptions/${id}/reject`)
+    const res = await api.patch(`/api/prescriptions/${id}/reject`)
+    return res.data
   },
 
   async verify(id: number): Promise<Prescription> {
-    return api.get(`/api/prescriptions/${id}/verify`)
+    const res = await api.get(`/api/prescriptions/${id}/verify`)
+    return res.data
   }
 }

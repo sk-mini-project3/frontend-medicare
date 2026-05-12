@@ -67,7 +67,7 @@ export function PatientHeader({ patientName, patientId }: PatientHeaderProps) {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-9 w-9 rounded-full">
                 <Avatar className="h-9 w-9">
-                  <AvatarImage src="/placeholder-avatar.jpg" alt={patientName} />
+                  <AvatarImage src="/placeholder-user.jpg" alt={patientName} />
                   <AvatarFallback className="bg-primary/10 text-primary">
                     {patientName.charAt(0)}
                   </AvatarFallback>

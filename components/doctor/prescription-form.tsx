@@ -14,6 +14,7 @@ import type { Patient } from "./patient-search"
 import { MedicalRecordService } from "@/services/medical-record.service"
 import { PrescriptionService } from "@/services/prescription.service"
 import { useAuthStore } from "@/hooks/use-auth-store"
+import { getNumericUserId } from "@/lib/auth-user"
 import { toast } from "sonner"
 
 interface Medication {
@@ -124,12 +125,17 @@ export function PrescriptionForm({ patient, reservationId }: PrescriptionFormPro
     
     setIsSubmitting(true)
     try {
-      // 1. 진료 기록 생성
-      const patientId = parseInt(patient.id.replace(/[^0-9]/g, "")) || 1 // 임시 ID 변환 로직
-      
+      const patientId = patient.userId
+      const doctorId = getNumericUserId(user)
+      if (doctorId == null) {
+        toast.error("의사 정보를 확인할 수 없습니다.")
+        setIsSubmitting(false)
+        return
+      }
+
       await MedicalRecordService.create({
         patientId,
-        doctorId: parseInt(user.id),
+        doctorId,
         reservationId,
         diagnosis,
         treatmentNotes
@@ -139,7 +145,7 @@ export function PrescriptionForm({ patient, reservationId }: PrescriptionFormPro
       for (const med of medications) {
         await PrescriptionService.create({
           patientId,
-          doctorId: parseInt(user.id),
+          doctorId,
           reservationId,
           medication: med.name,
           dosage: `${med.dosage} | ${getFrequencyLabel(med.frequency)} | ${getTimingLabel(med.timing)} | ${med.duration} | ${med.instructions || ""}`

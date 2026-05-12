@@ -10,12 +10,12 @@ import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Check, X, Clock, User, Loader2 } from "lucide-react"
 import { PrescriptionService, Prescription, PrescriptionStatus } from "@/services/prescription.service"
-import { useAuthStore } from "@/hooks/use-auth-store"
+import { PatientService } from "@/services/patient.service"
 import { toast } from "sonner"
 
 export function NursePrescriptionApproval() {
-  const { user } = useAuthStore()
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([])
+  const [patientNames, setPatientNames] = useState<Map<number, string>>(new Map())
   const [isLoading, setIsLoading] = useState(false)
   const [selectedPrescription, setSelectedPrescription] = useState<Prescription | null>(null)
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false)
@@ -24,10 +24,24 @@ export function NursePrescriptionApproval() {
   const fetchPendingPrescriptions = async () => {
     setIsLoading(true)
     try {
-      const data = await PrescriptionService.getAll({
-        status: PrescriptionStatus.PENDING
-      })
-      setPrescriptions(data)
+      const data = await PrescriptionService.getAll({ status: PrescriptionStatus.PENDING })
+      // 간호사가 요청한 처방만 (의사 직접 처방은 백엔드에서 APPROVED 처리)
+      const nursePending = data.filter((p) => p.nurseId != null)
+      const ids = [...new Set(nursePending.map((p) => p.patientId))]
+      const nameMap = new Map<number, string>()
+      await Promise.all(
+        ids.map(async (userId) => {
+          try {
+            const lu = await PatientService.getLookupForStaff(userId)
+            const n = lu.name?.trim()
+            nameMap.set(userId, n && n.length > 0 ? n : `환자 #${userId}`)
+          } catch {
+            nameMap.set(userId, `환자 #${userId}`)
+          }
+        })
+      )
+      setPatientNames(nameMap)
+      setPrescriptions(nursePending)
     } catch (error) {
       toast.error("대기 중인 처방 목록을 불러오는데 실패했습니다.")
     } finally {
@@ -40,9 +54,8 @@ export function NursePrescriptionApproval() {
   }, [])
 
   const handleApprove = async (prescription: Prescription) => {
-    if (!user) return
     try {
-      await PrescriptionService.approve(prescription.prescriptionId, parseInt(user.id))
+      await PrescriptionService.approve(prescription.prescriptionId)
       toast.success("처방이 승인되었습니다.")
       fetchPendingPrescriptions()
     } catch (error) {
@@ -105,12 +118,16 @@ export function NursePrescriptionApproval() {
                           <User className="h-4 w-4 text-muted-foreground" />
                         </div>
                         <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">환자 ID: {prescription.patientId}</span>
-                            <span className="text-xs text-muted-foreground">({prescription.prescriptionId})</span>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium">
+                              {patientNames.get(prescription.patientId) ?? `환자 #${prescription.patientId}`}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              (환자 ID {prescription.patientId}) · 처방 #{prescription.prescriptionId}
+                            </span>
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            요청 간호사 ID: {prescription.nurseId} | {new Date(prescription.createdAt).toLocaleString()}
+                            요청 간호사 ID: {prescription.nurseId ?? "—"} | {new Date(prescription.createdAt).toLocaleString()}
                           </p>
                         </div>
                       </div>
