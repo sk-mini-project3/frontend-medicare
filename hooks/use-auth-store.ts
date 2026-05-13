@@ -16,12 +16,17 @@ function mapAuthMeToUser(raw: unknown): AuthUser | null {
   if (!["DOCTOR", "NURSE", "PATIENT"].includes(roleRaw)) return null
   const email = String(o.email ?? "").trim()
   const name = String(o.name ?? "").trim()
+  const department =
+    typeof o.department === "string" && o.department.trim() !== ""
+      ? o.department.trim()
+      : undefined
   return {
     id: String(id),
     name: name || (email ? email.split("@")[0] : "") || "사용자",
     email,
     role: roleRaw as UserRole,
     phone: String(o.phone ?? "").trim(),
+    department,
   }
 }
 
