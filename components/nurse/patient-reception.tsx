@@ -41,7 +41,7 @@ function getDoctorLabel(doctorId: number): string {
 
 // 프론트엔드 UI용 타입
 interface Appointment extends Reservation {
-  patientName?: string // 백엔드 응답에 포함되지 않을 수 있으므로 optional
+  patientName?: string
 }
 
 const timeSlots = [

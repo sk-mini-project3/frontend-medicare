@@ -539,7 +539,7 @@ export function NursePrescriptionRequest({ patient }: NursePrescriptionRequestPr
             요청 내역
             {pendingCount > 0 && <Badge variant="secondary">{pendingCount}건 대기중</Badge>}
           </CardTitle>
-          <CardDescription>본인이 요청한 임시 처방 (서버 연동)</CardDescription>
+          <CardDescription>본인이 요청한 임시 처방</CardDescription>
         </CardHeader>
         <CardContent>
           {listLoading ? (

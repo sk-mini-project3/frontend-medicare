@@ -81,7 +81,7 @@ export function PatientEMR({ patient }: PatientEMRProps) {
               )}
             </CardTitle>
             <CardDescription className="mt-1">
-              환자번호(userId): {patient.userId} | 생년월일: {lookup?.birthDate || patient.birthDate}
+              환자번호: {patient.userId} | 생년월일: {lookup?.birthDate || patient.birthDate}
             </CardDescription>
           </div>
           {loading && <Loader2 className="h-5 w-5 shrink-0 animate-spin text-muted-foreground" />}
@@ -113,7 +113,7 @@ export function PatientEMR({ patient }: PatientEMRProps) {
                       <p className="text-sm font-medium">환자 정보</p>
                       <p className="text-sm text-muted-foreground">{lookup?.name || patient.name}</p>
                       {lookup?.patientDetailsRegistered === false && (
-                        <p className="text-xs text-amber-700 mt-1">patient_details 미등록 — 계정만 존재합니다.</p>
+                        <p className="text-xs text-amber-700 mt-1">상세 정보가 아직 등록되지 않은 계정입니다.</p>
                       )}
                     </div>
                   </div>
@@ -166,16 +166,14 @@ export function PatientEMR({ patient }: PatientEMRProps) {
             <TabsContent value="records" className="mt-0 space-y-4">
               <div className="space-y-3">
                 {records.length === 0 && !loading ? (
-                  <p className="text-sm text-muted-foreground">
-                    저장된 진료기록이 없습니다. (/api/medical-records/patient/{patient.userId})
-                  </p>
+                  <p className="text-sm text-muted-foreground">저장된 진료기록이 없습니다.</p>
                 ) : null}
                 {records.map((r) => (
                   <div key={r.recordId} className="p-3 border rounded-lg space-y-2">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <span className="text-xs text-muted-foreground">{new Date(r.createdAt).toLocaleString()}</span>
                       <Badge variant="outline" className="text-xs">
-                        기록 #{r.recordId}
+                        기록 {r.recordId}
                       </Badge>
                     </div>
                     <div>
@@ -195,8 +193,7 @@ export function PatientEMR({ patient }: PatientEMRProps) {
             </TabsContent>
 
             <TabsContent value="extra" className="mt-0 space-y-3 text-sm text-muted-foreground">
-              <p>검사·영상·간호기록 등 세부 EMR은 백엔드 모델에 맞추어 단계적으로 연동할 수 있습니다.</p>
-              <p>처방 목록은 우측「진료 기록 및 처방」또는「처방 관리」탭에서 확인·발행할 수 있습니다.</p>
+              <p>처방·진료 관련 작업은「진료 기록 및 처방」또는「처방 관리」에서 이어서 할 수 있습니다.</p>
             </TabsContent>
           </ScrollArea>
         </Tabs>

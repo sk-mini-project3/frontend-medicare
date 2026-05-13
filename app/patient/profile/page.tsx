@@ -141,7 +141,7 @@ export default function PatientProfilePage() {
           <h1 className="text-2xl font-bold mb-6">내 정보</h1>
           {usedLocalHealthOnly && (
             <p className="text-sm text-muted-foreground mb-4">
-              건강 정보는 아직 병원 DB에 없어, 이 브라우저에만 저장된 회원가입 시 입력값을 보여줍니다. 다른 기기나
+              건강 정보는 아직 병원에 연동되지 않아, 이 기기에만 저장된 가입 시 입력값을 보여줍니다. 다른 기기나
               시크릿 창에서는 비어 있을 수 있습니다.
             </p>
           )}

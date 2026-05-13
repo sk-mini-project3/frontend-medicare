@@ -43,3 +43,12 @@ Thumbs.db
 
 # TypeScript
 *.tsbuildinfo
+
+# GitHub Actions (로컬/원격에 올리지 않음)
+.github/
+
+# Docker (로컬/원격에 올리지 않음)
+Dockerfile
+.dockerignore
+docker-compose*.yml
+docker-compose*.yaml

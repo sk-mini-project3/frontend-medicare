@@ -11,14 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Eye, EyeOff, Mail, Lock, User, Phone, ShieldCheck, ArrowRight, ArrowLeft, Droplets, Shield, AlertTriangle } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { AuthService } from "@/services/auth.service"
+import { AuthService, getApiErrorMessage } from "@/services/auth.service"
 import { toast } from "sonner"
 
 type UserRole = "patient" | "nurse" | "doctor"
-
-// 백엔드 src/main/resources/verification-codes.yml 과 동기화
-const NURSE_CODES = ["NURSE-1111", "NURSE-2222", "NURSE-3333"]
-const DOCTOR_CODES = ["DOCTOR-1234", "DOCTOR-5678", "DOCTOR-9999"]
 
 export function RegisterForm() {
   const router = useRouter()
@@ -27,6 +23,7 @@ export function RegisterForm() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [verificationError, setVerificationError] = useState("")
+  const [verifying, setVerifying] = useState(false)
 
   // Step 1: Role Selection
   const [role, setRole] = useState<UserRole>("patient")
@@ -45,24 +42,19 @@ export function RegisterForm() {
   const [insurance, setInsurance] = useState("")
   const [allergies, setAllergies] = useState("")
 
-  const handleVerifyCode = () => {
+  const handleVerifyCode = async () => {
     setVerificationError("")
-    
     const code = verificationCode.trim()
-    if (role === "nurse") {
-      if (NURSE_CODES.includes(code)) {
-        setIsVerified(true)
-      } else {
-        setVerificationError(`유효한 코드: ${NURSE_CODES.join(", ")}`)
-        setIsVerified(false)
-      }
-    } else if (role === "doctor") {
-      if (DOCTOR_CODES.includes(code)) {
-        setIsVerified(true)
-      } else {
-        setVerificationError(`유효한 코드: ${DOCTOR_CODES.join(", ")}`)
-        setIsVerified(false)
-      }
+    if (!code) return
+    setVerifying(true)
+    try {
+      await AuthService.validateStaffCode(role === "doctor" ? "DOCTOR" : "NURSE", code)
+      setIsVerified(true)
+    } catch (err) {
+      setIsVerified(false)
+      setVerificationError(getApiErrorMessage(err, "인증에 실패했습니다."))
+    } finally {
+      setVerifying(false)
     }
   }
 
@@ -232,8 +224,7 @@ export function RegisterForm() {
                 <span>{role === "nurse" ? "간호사" : "의사"} 인증이 필요합니다</span>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                가입 시 입력하는 <strong>이름</strong>은 <code className="text-[11px]">verification-codes.yml</code>에
-                적힌 해당 코드의 <strong>ownerName</strong>과 같아야 합니다. (서버 재시작 시 YAML이 DB에 반영됩니다.)
+                병원에서 발급받은 인증 코드를 입력한 뒤「인증」을 눌러 주세요. 가입 시 입력하는 이름은 코드에 등록된 이름과 동일해야 합니다.
               </p>
               <div className="space-y-2">
                 <Label htmlFor="verificationCode" className="text-foreground/80 text-sm font-medium">
@@ -255,10 +246,10 @@ export function RegisterForm() {
                   <Button
                     type="button"
                     variant="secondary"
-                    onClick={handleVerifyCode}
-                    disabled={!verificationCode.trim()}
+                    onClick={() => void handleVerifyCode()}
+                    disabled={!verificationCode.trim() || verifying}
                   >
-                    인증
+                    {verifying ? "확인 중…" : "인증"}
                   </Button>
                 </div>
                 {verificationError && (
@@ -303,9 +294,9 @@ export function RegisterForm() {
                 type="text"
                 placeholder={
                   role === "doctor"
-                    ? "김의사 (verification-codes.yml의 ownerName과 동일)"
+                    ? "예: 김의사 (발급 코드에 등록된 이름과 동일)"
                     : role === "nurse"
-                      ? "간호사 (코드에 등록된 이름과 동일)"
+                      ? "예: 박간호 (발급 코드에 등록된 이름과 동일)"
                       : "홍길동"
                 }
                 value={name}
@@ -316,7 +307,7 @@ export function RegisterForm() {
             </div>
             {(role === "doctor" || role === "nurse") && (
               <p className="text-xs text-muted-foreground">
-                의사·간호사는 인증코드마다 등록된 이름과 한 글자도 다르지 않게 일치해야 합니다. YAML을 바꾼 뒤에는 Spring 서버를 재시작해야 DB에 반영됩니다.
+                의사·간호사는 인증 코드에 등록된 실명과 한 글자도 다르지 않게 일치해야 합니다.
               </p>
             )}
           </div>

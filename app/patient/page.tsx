@@ -43,8 +43,6 @@ export default function PatientPage() {
         ReservationService.getMyReservations(),
         PrescriptionService.getMyPrescriptions()
       ])
-      
-      // 백엔드 데이터를 프론트엔드 UI 포맷으로 변환
       const mappedAppointments = resData.map((res: any) => {
         const dateObj = new Date(res.reservationDate)
         const hours = String(dateObj.getHours()).padStart(2, '0')
@@ -170,7 +168,6 @@ export default function PatientPage() {
   }
 
   const handleCancelAppointment = async (id: number) => {
-    // 백엔드 취소 API 미구현 시 프론트 처리 또는 알림
     toast.info("예약 취소 기능은 준비 중입니다.")
   }
 

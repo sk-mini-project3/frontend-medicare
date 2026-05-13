@@ -5,20 +5,28 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Mail, ArrowLeft, CheckCircle, ArrowRight } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Mail, ArrowLeft, CheckCircle, ArrowRight, AlertCircle } from "lucide-react"
+import { AuthService, getApiErrorMessage } from "@/services/auth.service"
 
 export function ForgotPasswordForm() {
   const [email, setEmail] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
+  const [error, setError] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError("")
     setIsLoading(true)
-    // 비밀번호 재설정 이메일 발송 로직
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    setIsLoading(false)
-    setIsSubmitted(true)
+    try {
+      await AuthService.requestPasswordReset(email.trim())
+      setIsSubmitted(true)
+    } catch (err) {
+      setError(getApiErrorMessage(err, "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요."))
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   if (isSubmitted) {
@@ -32,9 +40,10 @@ export function ForgotPasswordForm() {
         <div className="space-y-2">
           <h2 className="text-xl font-semibold text-foreground">이메일을 확인해주세요</h2>
           <p className="text-sm text-muted-foreground">
+            등록된 계정이 있다면{" "}
             <span className="font-medium text-foreground">{email}</span>으로
             <br />
-            비밀번호 재설정 링크를 발송했습니다.
+            재설정 링크를 보냈습니다. (스팸함도 확인해 주세요)
           </p>
         </div>
         <div className="space-y-3 pt-2">
@@ -49,6 +58,7 @@ export function ForgotPasswordForm() {
             onClick={() => {
               setIsSubmitted(false)
               setEmail("")
+              setError("")
             }}
           >
             다시 시도하기
@@ -74,6 +84,13 @@ export function ForgotPasswordForm() {
           비밀번호 재설정 링크를 보내드립니다.
         </p>
       </div>
+
+      {error ? (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
 
       <div className="space-y-2">
         <Label htmlFor="email" className="text-foreground/80 text-sm font-medium">

@@ -25,7 +25,6 @@ export function NursePrescriptionApproval() {
     setIsLoading(true)
     try {
       const data = await PrescriptionService.getAll({ status: PrescriptionStatus.PENDING })
-      // 간호사가 요청한 처방만 (의사 직접 처방은 백엔드에서 APPROVED 처리)
       const nursePending = data.filter((p) => p.nurseId != null)
       const ids = [...new Set(nursePending.map((p) => p.patientId))]
       const nameMap = new Map<number, string>()
@@ -123,11 +122,11 @@ export function NursePrescriptionApproval() {
                               {patientNames.get(prescription.patientId) ?? `환자 #${prescription.patientId}`}
                             </span>
                             <span className="text-xs text-muted-foreground">
-                              (환자 ID {prescription.patientId}) · 처방 #{prescription.prescriptionId}
+                              환자번호 {prescription.patientId} · 처방 {prescription.prescriptionId}
                             </span>
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            요청 간호사 ID: {prescription.nurseId ?? "—"} | {new Date(prescription.createdAt).toLocaleString()}
+                            요청 간호사 {prescription.nurseId ?? "—"} · {new Date(prescription.createdAt).toLocaleString()}
                           </p>
                         </div>
                       </div>
@@ -176,9 +175,7 @@ export function NursePrescriptionApproval() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>처방 반려</DialogTitle>
-            <DialogDescription>
-              반려 사유를 입력해주세요. (현재 백엔드 사유 저장 미지원)
-            </DialogDescription>
+            <DialogDescription>반려 사유를 입력해 주세요.</DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <Label htmlFor="rejectReason">반려 사유</Label>

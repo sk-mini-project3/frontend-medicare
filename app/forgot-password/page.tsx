@@ -45,9 +45,9 @@ export default function ForgotPasswordPage() {
                   <Clock className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="font-semibold">24시간 유효</h3>
+                  <h3 className="font-semibold">10분간 유효</h3>
                   <p className="text-sm text-primary-foreground/70 mt-1">
-                    보안을 위해 재설정 링크는 24시간 동안만 유효합니다.
+                    보안을 위해 재설정 링크는 10분 동안만 유효합니다.
                   </p>
                 </div>
               </div>

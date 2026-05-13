@@ -6,7 +6,7 @@ import type { AuthUser, UserRole } from "@/types/auth-user"
 
 export type { UserRole, AuthUser as User } from "@/types/auth-user"
 
-/** Spring `GET /api/auth/me` 응답(axios 인터셉터로 `data`만 옴) → 스토어 User */
+/** 로그인 사용자 프로필 응답을 스토어 형식으로 변환 */
 function mapAuthMeToUser(raw: unknown): AuthUser | null {
   if (!raw || typeof raw !== "object") return null
   const o = raw as Record<string, unknown>

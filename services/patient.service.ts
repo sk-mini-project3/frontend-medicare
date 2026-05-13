@@ -11,11 +11,11 @@ export interface PatientDetailsDto {
   address: string
   insuranceInfo: string
   allergies: string
-  /** GET /api/patients/{id}/lookup — patient_details 행 존재 여부 */
+  /** 상세 정보 등록 여부 */
   patientDetailsRegistered?: boolean
 }
 
-/** GET /api/patients/my — 로그인 환자 본인 프로필 */
+/** 로그인 환자 본인 프로필 */
 export interface MyPatientProfileDto {
   name: string
   email: string
@@ -27,7 +27,7 @@ export interface MyPatientProfileDto {
   allergies: string | null
 }
 
-/** 간호/의사 환자 lookup 응답 정규화 (Jackson 필드명·null 안전) */
+/** staff lookup 응답 정규화 */
 function normalizeStaffPatientLookup(raw: unknown): PatientDetailsDto {
   const o = raw as Record<string, unknown>
   const str = (v: unknown) => (v == null ? "" : String(v).trim())
@@ -105,7 +105,6 @@ export const PatientService = {
     return res.data
   },
 
-  /** 간호·의사 EMR: users + patient_details(있으면) 통합 */
   async getLookupForStaff(userId: number): Promise<PatientDetailsDto> {
     const res = await api.get(`/api/patients/${userId}/lookup`)
     return normalizeStaffPatientLookup(res.data)

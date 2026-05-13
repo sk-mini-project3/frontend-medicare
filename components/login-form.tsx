@@ -40,7 +40,7 @@ export function LoginForm() {
       const role = res?.role
 
       if (!role) {
-        throw new Error("role 없음 (백엔드 응답 확인 필요)")
+        throw new Error("역할 정보를 확인할 수 없습니다.")
       }
 
       // 🔥 핵심: 상태 반영 타이밍 안정화

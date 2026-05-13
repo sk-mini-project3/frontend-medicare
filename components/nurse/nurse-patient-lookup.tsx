@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
@@ -17,8 +18,9 @@ import {
   Clipboard,
   AlertCircle,
   Loader2,
+  RefreshCw,
 } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn, isMeaningfulPatientGender } from "@/lib/utils"
 import { PatientService } from "@/services/patient.service"
 import type { PatientDetailsDto } from "@/services/patient.service"
 import { ReservationService } from "@/services/reservation.service"
@@ -41,9 +43,9 @@ export interface Patient {
   address?: string
   insuranceInfo?: string
   allergies?: string
-  /** 예약(symptoms)만 있고 patient_details 없을 때 표시 */
+  /** 예약만으로 등록된 경우 부가 설명 */
   subtitle?: string
-  /** patient_details 행이 없이 예약으로만 목록에 올라온 경우 */
+  /** 상세 정보 없이 예약으로만 조회된 경우 */
   fromReservationOnly?: boolean
 }
 
@@ -54,7 +56,7 @@ function isPlaceholderGender(g: string | undefined): boolean {
 
 function isPlaceholderBirth(b: string | undefined): boolean {
   const t = (b ?? "").trim()
-  return t === "" || t === "상세 미등록" || t === "미등록"
+  return t === "" || t === "—" || t === "상세 미등록" || t === "미등록"
 }
 
 function formatBasicPatientSummary(p: Patient): string {
@@ -71,11 +73,11 @@ function formatBasicPatientSummary(p: Patient): string {
 function mapDtoToPatient(dto: PatientDetailsDto): Patient {
   return {
     id: String(dto.userId),
-    name: dto.name?.trim() ? dto.name : `환자 #${dto.userId}`,
-    birthDate: dto.birthDate ?? "",
-    gender: dto.gender?.trim() ? dto.gender : "-",
-    phone: dto.phone?.trim() ? dto.phone : "-",
-    lastVisit: "-",
+    name: dto.name?.trim() ? dto.name : "(이름 없음)",
+    birthDate: dto.birthDate?.trim() ? dto.birthDate.trim() : "—",
+    gender: dto.gender?.trim() ? dto.gender : "—",
+    phone: dto.phone?.trim() ? dto.phone : "—",
+    lastVisit: "—",
     status: "외래",
     emergencyContact: dto.emergencyContact,
     bloodType: dto.bloodType,
@@ -84,73 +86,6 @@ function mapDtoToPatient(dto: PatientDetailsDto): Patient {
     allergies: dto.allergies,
     fromReservationOnly: dto.patientDetailsRegistered === false,
   }
-}
-
-function reservationToPatient(res: Reservation): Patient {
-  const pid = res.patientId
-  const symptoms = res.symptoms?.trim()
-  const d = new Date(res.reservationDate)
-  const displayName = res.patientName?.trim() ? res.patientName.trim() : `환자 #${pid}`
-  return {
-    id: String(pid),
-    name: displayName,
-    birthDate: "상세 미등록",
-    gender: "-",
-    phone: "-",
-    lastVisit: d.toLocaleDateString("ko-KR"),
-    status: "외래",
-    subtitle: symptoms,
-    fromReservationOnly: true,
-  }
-}
-
-function mergePatientsFromDetailsAndReservations(
-  details: PatientDetailsDto[],
-  reservations: Reservation[]
-): Patient[] {
-  const map = new Map<string, Patient>()
-  for (const dto of details) {
-    map.set(String(dto.userId), mapDtoToPatient(dto))
-  }
-  const latestByPatient = new Map<number, Reservation>()
-  for (const r of reservations) {
-    const prev = latestByPatient.get(r.patientId)
-    const t = new Date(r.reservationDate).getTime()
-    if (!prev || t > new Date(prev.reservationDate).getTime()) {
-      latestByPatient.set(r.patientId, r)
-    }
-  }
-  for (const [pid, res] of latestByPatient) {
-    const key = String(pid)
-    const existing = map.get(key)
-    if (!existing) {
-      map.set(key, reservationToPatient(res))
-      continue
-    }
-    const pn = res.patientName?.trim()
-    if (pn) {
-      const placeholder = `환자 #${pid}`
-      if (existing.name === placeholder) {
-        map.set(key, {
-          ...existing,
-          name: pn,
-          subtitle: existing.subtitle ?? (res.symptoms?.trim() || undefined),
-        })
-      }
-    }
-  }
-  return Array.from(map.values())
-    .filter((p) => {
-      if (!p.fromReservationOnly) return true
-      if (/^patient\d+$/i.test(p.name.trim())) return false
-      return true
-    })
-    .sort((a, b) => {
-    const na = parseInt(a.id, 10)
-    const nb = parseInt(b.id, 10)
-    if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb
-    return a.id.localeCompare(b.id)
-  })
 }
 
 function parseAllergyList(allergies?: string) {
@@ -203,27 +138,22 @@ export function NursePatientLookup({ onSelectPatient, selectedPatient }: NursePa
   const [patientPrescriptions, setPatientPrescriptions] = useState<Prescription[]>([])
   const [emrExtraLoading, setEmrExtraLoading] = useState(false)
 
-  useEffect(() => {
-    let cancelled = false
+  const loadPatients = useCallback(async () => {
     setLoading(true)
-    Promise.all([
-      PatientService.getAll().catch(() => [] as PatientDetailsDto[]),
-      ReservationService.getAll().catch(() => [] as Reservation[]),
-    ])
-      .then(([detailsList, reservations]) => {
-        if (cancelled) return
-        setPatients(mergePatientsFromDetailsAndReservations(detailsList, reservations))
-      })
-      .catch(() => {
-        if (!cancelled) toast.error("환자·예약 목록을 불러오지 못했습니다.")
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
+    try {
+      const list = await PatientService.getAll()
+      setPatients(list.map(mapDtoToPatient))
+    } catch {
+      toast.error("환자 목록을 불러오지 못했습니다.")
+      setPatients([])
+    } finally {
+      setLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    void loadPatients()
+  }, [loadPatients])
 
   useEffect(() => {
     if (!selectedPatient) {
@@ -237,7 +167,7 @@ export function NursePatientLookup({ onSelectPatient, selectedPatient }: NursePa
     }
     const needsHydration =
       selectedPatient.fromReservationOnly === true ||
-      selectedPatient.birthDate === "상세 미등록"
+      isPlaceholderBirth(selectedPatient.birthDate)
 
     if (!needsHydration) {
       setPatientDetailSync(false)
@@ -356,8 +286,7 @@ export function NursePatientLookup({ onSelectPatient, selectedPatient }: NursePa
     (patient) =>
       patient.name.includes(searchQuery) ||
       patient.id.includes(searchQuery) ||
-      patient.phone.includes(searchQuery) ||
-      (patient.subtitle?.includes(searchQuery) ?? false)
+      patient.phone.includes(searchQuery)
   )
 
   const getStatusColor = (status: Patient["status"]) => {
@@ -383,9 +312,14 @@ export function NursePatientLookup({ onSelectPatient, selectedPatient }: NursePa
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">환자 조회</CardTitle>
-          <CardDescription>환자명, 환자번호(userId), 연락처로 검색</CardDescription>
+        <CardHeader className="flex flex-row items-start justify-between space-y-0">
+          <div>
+            <CardTitle className="text-lg">환자 조회</CardTitle>
+            <CardDescription>이름·환자번호·연락처로 검색</CardDescription>
+          </div>
+          <Button type="button" variant="outline" size="icon" onClick={() => void loadPatients()} disabled={loading} title="새로고침">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+          </Button>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="relative">
@@ -398,80 +332,67 @@ export function NursePatientLookup({ onSelectPatient, selectedPatient }: NursePa
             />
           </div>
 
-          <ScrollArea className="h-[500px]">
-            <div className="space-y-2 pr-4">
-              {loading ? (
-                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
-                  <Loader2 className="h-8 w-8 animate-spin" />
-                  <span className="text-sm">환자 정보를 불러오는 중…</span>
-                </div>
-              ) : (
-                <>
-                  {filteredPatients.map((patient) => (
-                    <button
-                      key={patient.id}
-                      type="button"
-                      onClick={() => handleSelectPatientRow(patient)}
-                      className={cn(
-                        "w-full text-left p-3 rounded-lg border transition-colors hover:bg-secondary/50",
-                        selectedPatient?.id === patient.id && "bg-primary/5 border-primary/30",
-                        patientDetailSync && selectedPatient?.id === patient.id && "opacity-80"
-                      )}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary">
-                            {patientDetailSync && selectedPatient?.id === patient.id ? (
-                              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                            ) : (
-                              <User className="h-5 w-5 text-muted-foreground" />
-                            )}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-medium">{patient.name}</span>
-                              {!isPlaceholderGender(patient.gender) && (
-                                <span className="text-xs text-muted-foreground">({patient.gender})</span>
-                              )}
-                              <Badge variant="outline" className={cn("text-xs", getStatusColor(patient.status))}>
-                                {patient.status}
-                              </Badge>
-                            </div>
-                            <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                              <span>환자번호 {patient.id}</span>
-                              {!isPlaceholderBirth(patient.birthDate) && (
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="h-3 w-3" />
-                                  {patient.birthDate}
-                                </span>
-                              )}
-                              {patient.fromReservationOnly && (
-                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                                  예약만
-                                </Badge>
-                              )}
-                            </div>
-                            {patient.subtitle && (
-                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{patient.subtitle}</p>
-                            )}
-                          </div>
+          <div className="space-y-2 max-h-[500px] overflow-y-auto">
+            {loading && patients.length === 0 ? (
+              <div className="flex justify-center py-12 text-muted-foreground">
+                <Loader2 className="h-8 w-8 animate-spin" />
+              </div>
+            ) : (
+              filteredPatients.map((patient) => (
+                <button
+                  key={patient.id}
+                  type="button"
+                  onClick={() => handleSelectPatientRow(patient)}
+                  className={cn(
+                    "w-full text-left p-3 rounded-lg border transition-colors hover:bg-secondary/50",
+                    selectedPatient?.id === patient.id && "bg-primary/5 border-primary/30",
+                    patientDetailSync && selectedPatient?.id === patient.id && "opacity-80"
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary">
+                        {patientDetailSync && selectedPatient?.id === patient.id ? (
+                          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                        ) : (
+                          <User className="h-5 w-5 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium">{patient.name}</span>
+                          {isMeaningfulPatientGender(patient.gender) && (
+                            <span className="text-xs text-muted-foreground">({patient.gender})</span>
+                          )}
+                          <Badge variant="outline" className={cn("text-xs", getStatusColor(patient.status))}>
+                            {patient.status}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                          <span>ID {patient.id}</span>
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {patient.birthDate}
+                          </span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground pl-13">
-                        <span className="flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
-                          {patient.phone}
-                        </span>
-                      </div>
-                    </button>
-                  ))}
-                  {filteredPatients.length === 0 && (
-                    <div className="text-center py-8 text-muted-foreground">검색 결과가 없습니다</div>
-                  )}
-                </>
-              )}
-            </div>
-          </ScrollArea>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground pl-13">
+                    <span className="flex items-center gap-1">
+                      <Phone className="h-3 w-3" />
+                      {patient.phone}
+                    </span>
+                  </div>
+                </button>
+              ))
+            )}
+            {!loading && filteredPatients.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                {patients.length === 0 ? "등록된 환자가 없습니다." : "검색 결과가 없습니다"}
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -490,14 +411,11 @@ export function NursePatientLookup({ onSelectPatient, selectedPatient }: NursePa
                   </Badge>
                 </CardTitle>
                 <CardDescription className="mt-1">
-                  환자번호(userId): {selectedPatient.id}
+                  환자번호: {selectedPatient.id}
                   {!isPlaceholderBirth(selectedPatient.birthDate) && (
                     <> | 생년월일: {selectedPatient.birthDate}</>
                   )}
                   {latestVisitLabel && ` | 최근 진료: ${latestVisitLabel}`}
-                  <span className="block text-xs mt-1 opacity-90">
-                    진료기록 탭의 &quot;진료기록 ID&quot;는 DB의 기록 식별자이며, 위 환자번호와 다를 수 있습니다.
-                  </span>
                 </CardDescription>
               </div>
               <Badge variant="secondary" className="text-xs shrink-0">
@@ -539,13 +457,13 @@ export function NursePatientLookup({ onSelectPatient, selectedPatient }: NursePa
                 <TabsContent value="basic" className="mt-0 space-y-4">
                   <div className="grid gap-4">
                     {selectedPatient.fromReservationOnly && (
-                      <div className="flex gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                        <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                        <p>
-                          환자 상세(<code className="text-xs">patient_details</code>)가 없습니다. 계정에 등록된{" "}
-                          <strong>이름·연락처</strong>는 위에 표시되며, 생년월일·혈액형 등은 상세 등록 후 채워집니다.
-                        </p>
-                      </div>
+                    <div className="flex gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                      <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                      <p>
+                        상세 정보가 등록되지 않은 환자입니다. 이름·연락처는 표시되며, 생년월일·혈액형 등은 상세 등록 후
+                        확인할 수 있습니다.
+                      </p>
+                    </div>
                     )}
                     <div className="flex items-start gap-3">
                       <User className="h-5 w-5 text-muted-foreground mt-0.5" />
@@ -610,7 +528,7 @@ export function NursePatientLookup({ onSelectPatient, selectedPatient }: NursePa
                               {new Date(rec.createdAt).toLocaleString("ko-KR")}
                             </span>
                             <Badge variant="outline" className="text-xs">
-                              진료기록 ID {rec.recordId}
+                              기록 {rec.recordId}
                             </Badge>
                           </div>
                           <div>
@@ -635,9 +553,6 @@ export function NursePatientLookup({ onSelectPatient, selectedPatient }: NursePa
                 </TabsContent>
 
                 <TabsContent value="tests" className="mt-0 space-y-4">
-                  <p className="text-xs text-muted-foreground mb-3">
-                    별도 검사결과(LIS) API는 없어, 처방·약제 이력을 &quot;임상 관련 기록&quot;으로 표시합니다.
-                  </p>
                   {emrExtraLoading ? (
                     <div className="flex items-center gap-2 text-muted-foreground py-8 justify-center">
                       <Loader2 className="h-5 w-5 animate-spin" />
@@ -663,8 +578,8 @@ export function NursePatientLookup({ onSelectPatient, selectedPatient }: NursePa
                               <p className="text-sm font-medium">{px.medication}</p>
                               <p className="text-sm text-muted-foreground">용량: {px.dosage?.trim() || "-"}</p>
                               <p className="text-xs text-muted-foreground mt-1">
-                                처방 ID {px.prescriptionId}
-                                {px.reservationId != null ? ` · 예약 연결 #${px.reservationId}` : ""}
+                                처방 {px.prescriptionId}
+                                {px.reservationId != null ? ` · 예약 ${px.reservationId}` : ""}
                               </p>
                             </div>
                           </div>
@@ -675,9 +590,6 @@ export function NursePatientLookup({ onSelectPatient, selectedPatient }: NursePa
                 </TabsContent>
 
                 <TabsContent value="nursing" className="mt-0 space-y-4">
-                  <p className="text-xs text-muted-foreground mb-3">
-                    간호기록 전용 API는 없어, 내원·예약 이력(접수 상태)을 표시합니다.
-                  </p>
                   {emrExtraLoading ? (
                     <div className="flex items-center gap-2 text-muted-foreground py-8 justify-center">
                       <Loader2 className="h-5 w-5 animate-spin" />
@@ -701,7 +613,7 @@ export function NursePatientLookup({ onSelectPatient, selectedPatient }: NursePa
                             <Clipboard className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
                             <div className="min-w-0">
                               <p className="text-sm text-muted-foreground">
-                                예약 #{rv.reservationId} · 담당의사 ID {rv.doctorId}
+                                예약 {rv.reservationId} · 담당의 {rv.doctorId}
                               </p>
                               {rv.symptoms?.trim() && (
                                 <p className="text-sm mt-1 whitespace-pre-wrap">{rv.symptoms.trim()}</p>

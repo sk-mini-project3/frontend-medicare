@@ -1,7 +1,4 @@
-/**
- * Spring JWT의 `sub`는 숫자 userId 문자열입니다.
- * `/api/me` 목업 등으로 `user.id`가 비숫자일 때는 토큰 payload에서 다시 읽습니다.
- */
+/** JWT payload에서 숫자 사용자 식별자를 읽습니다. */
 export function getNumericUserId(user: { id: string } | null | undefined): number | null {
   if (!user?.id) return null
   const direct = parseInt(user.id, 10)

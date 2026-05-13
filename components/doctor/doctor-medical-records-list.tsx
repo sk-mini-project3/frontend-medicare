@@ -60,7 +60,7 @@ export function DoctorMedicalRecordsList({ doctorId }: DoctorMedicalRecordsListP
       <CardHeader className="flex flex-row items-start justify-between space-y-0">
         <div>
           <CardTitle>진료 기록</CardTitle>
-          <CardDescription>내가 작성한 진료기록 (/api/medical-records/doctor/me)</CardDescription>
+          <CardDescription>내가 작성한 진료기록</CardDescription>
         </div>
         <Button type="button" variant="outline" size="icon" onClick={() => void load()} disabled={loading} title="새로고침">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}

@@ -70,7 +70,7 @@ export function DoctorPrescriptionHistory({ doctorId }: DoctorPrescriptionHistor
       <CardHeader className="flex flex-row items-start justify-between space-y-0">
         <div>
           <CardTitle className="text-lg">처방 이력</CardTitle>
-          <CardDescription>본인이 작성한 처방 (/api/prescriptions?doctorId=)</CardDescription>
+          <CardDescription>내가 작성한 처방</CardDescription>
         </div>
         <Button type="button" variant="outline" size="icon" onClick={() => void load()} disabled={loading} title="새로고침">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}

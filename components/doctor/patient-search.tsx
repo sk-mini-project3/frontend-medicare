@@ -10,7 +10,6 @@ import { cn, isMeaningfulPatientGender } from "@/lib/utils"
 import { PatientService } from "@/services/patient.service"
 import { toast } from "sonner"
 
-/** UI용 환자 행 — `userId`는 백엔드 users.user_id (진료·처방 API에 사용) */
 export type Patient = {
   userId: number
   id: string
@@ -85,7 +84,7 @@ export function PatientSearch({ onSelectPatient, selectedPatientId }: PatientSea
       <CardHeader className="flex flex-row items-start justify-between space-y-0">
         <div>
           <CardTitle className="text-lg">환자 조회</CardTitle>
-          <CardDescription>이름·환자번호(userId)·연락처로 검색 (백엔드 /api/patients)</CardDescription>
+          <CardDescription>이름·환자번호·연락처로 검색</CardDescription>
         </div>
         <Button type="button" variant="outline" size="icon" onClick={() => void load()} disabled={isLoading} title="새로고침">
           {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
@@ -154,7 +153,7 @@ export function PatientSearch({ onSelectPatient, selectedPatientId }: PatientSea
           )}
           {!isLoading && filteredPatients.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
-              {patients.length === 0 ? "등록된 환자 상세가 없습니다. (patient_details 미등록 시 목록이 비어 있을 수 있습니다)" : "검색 결과가 없습니다"}
+              {patients.length === 0 ? "등록된 환자가 없습니다." : "검색 결과가 없습니다"}
             </div>
           )}
         </div>
