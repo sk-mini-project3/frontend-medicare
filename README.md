@@ -159,6 +159,7 @@ docker build --build-arg NEXT_PUBLIC_API_URL=https://your-api.example.com -t med
 ## CI
 
 - **`.github/workflows/medical-services-ci.yml`**: `npm ci` → `tsc --noEmit` → `next build` → Docker 스모크 빌드(`push: false`).  
+- **`NEXT_PUBLIC_API_URL`**: 레포 시크릿과 동일 키를 사용합니다. 없으면 `http://127.0.0.1:3000`(fork PR 등에서도 동일 폴백). CD(GHCR 푸시) 잡도 같은 시크릿·폴백입니다.  
 - `main` / `master` 등 조건에 따라 GHCR 푸시 job이 붙어 있을 수 있으니 워크플로의 `if:` 를 확인합니다.
 
 ---

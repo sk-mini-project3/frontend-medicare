@@ -18,6 +18,9 @@ jobs:
   ci:
     name: Typecheck + Next build + Docker smoke
     runs-on: ubuntu-latest
+    # CD와 동일: 시크릿 미설정·fork PR 등에서는 127.0.0.1:3000 으로 빌드만 통과
+    env:
+      NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -36,8 +39,6 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Build (Next.js)
-        env:
-          NEXT_PUBLIC_API_URL: http://127.0.0.1:3000
         run: npm run build
 
       - name: Set up Docker Buildx
@@ -51,7 +52,7 @@ jobs:
           push: false
           tags: medical-service-frontend:ci
           build-args: |
-            NEXT_PUBLIC_API_URL=http://127.0.0.1:3000
+            NEXT_PUBLIC_API_URL=${{ env.NEXT_PUBLIC_API_URL }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
